@@ -169,3 +169,7 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Local Files for Testing
+qa_data.jsonl
+qa_data.db

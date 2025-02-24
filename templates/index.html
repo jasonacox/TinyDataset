@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fact QA Generator</title>
+    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <h1>Fact to QA Generator</h1>
+
+    <!-- Form to enter a new fact -->
+    <form hx-post="/generate/" hx-target="#qa-table-body" hx-swap="innerHTML">
+        <input type="text" name="fact" placeholder="Enter a fact" required>
+        <button type="submit">Generate QA</button>
+    </form>
+
+    <h2>Generated Questions & Answers</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Question</th>
+                <th>Answer</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="qa-table-body" hx-get="/get_qa/" hx-trigger="load, new-qa from:body" hx-swap="innerHTML">
+            <!-- QA rows will be dynamically loaded here -->
+        </tbody>
+    </table>
+
+    <!-- Button to export all data to JSONL -->
+    <button hx-get="/export/" hx-trigger="click" hx-target="#export-result">Export to JSONL</button>
+    <div id="export-result"></div>
+</body>
+</html>
