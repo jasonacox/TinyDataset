@@ -1,6 +1,7 @@
 import os
 import json
 import sqlite3
+from html import escape
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -21,6 +22,28 @@ if os.path.exists("qa_data.db"):
     os.remove("qa_data.db")
 init_db()
 
+def render_qa_rows(qa_pairs):
+    """Render Q&A table rows, escaping LLM/user supplied text."""
+    rows = ""
+    for qa in qa_pairs:
+        rows += f"""
+        <tr id="qa-{qa['id']}">
+            <td>{escape(qa['question'])}</td>
+            <td>{escape(qa['answer'])}</td>
+            <td>
+                <button class="action-btn edit-btn" 
+                        hx-get="/edit_qa/{qa['id']}" 
+                        hx-target="#qa-{qa['id']}" 
+                        hx-swap="outerHTML">Edit</button>
+                <button class="action-btn delete-btn" 
+                        hx-delete="/delete_qa/{qa['id']}" 
+                        hx-target="#qa-{qa['id']}" 
+                        hx-swap="outerHTML">Delete</button>
+            </td>
+        </tr>
+        """
+    return rows
+
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request, "facts": get_facts()})
@@ -38,26 +61,7 @@ async def generate_questions(fact: str = Form(...)):
     # Rebuild entire table from database
     qa_pairs = get_qa()
     # Generate the new rows of the table to be inserted into the UI
-    qa_html = ""
-    for qa in qa_pairs:
-        print(f"QA: {qa}")
-        qa_html += f"""
-        <tr id="qa-{qa['id']}">
-            <td>{qa['question']}</td>
-            <td>{qa['answer']}</td>
-            <td>
-                <button class="action-btn edit-btn" 
-                        hx-get="/edit_qa/{qa['id']}" 
-                        hx-target="#qa-{qa['id']}" 
-                        hx-swap="outerHTML">Edit</button>
-                <button class="action-btn delete-btn" 
-                        hx-delete="/delete_qa/{qa['id']}" 
-                        hx-target="#qa-{qa['id']}" 
-                        hx-swap="outerHTML">Delete</button>
-            </td>
-        </tr>
-        """
-    return HTMLResponse(qa_html)
+    return HTMLResponse(render_qa_rows(qa_pairs))
 
 @app.get("/export/")
 async def export_data():
@@ -68,25 +72,7 @@ async def export_data():
 async def get_qa_data():
     qa_pairs = get_qa()
     print(f"QA pairs: {qa_pairs}")
-    html = ""
-    for qa in qa_pairs:
-        html += f"""
-        <tr id="qa-{qa['id']}">
-            <td>{qa['question']}</td>
-            <td>{qa['answer']}</td>
-            <td>
-                <button class="action-btn edit-btn" 
-                        hx-get="/edit_qa/{qa['id']}" 
-                        hx-target="#qa-{qa['id']}" 
-                        hx-swap="outerHTML">Edit</button>
-                <button class="action-btn delete-btn" 
-                        hx-delete="/delete_qa/{qa['id']}" 
-                        hx-target="#qa-{qa['id']}" 
-                        hx-swap="outerHTML">Delete</button>
-            </td>
-        </tr>
-        """
-    return HTMLResponse(html)
+    return HTMLResponse(render_qa_rows(qa_pairs))
 
 @app.delete("/delete_qa/{qa_id}")
 async def delete_qa_entry(qa_id: int):
@@ -97,11 +83,13 @@ async def delete_qa_entry(qa_id: int):
 @app.get("/edit_qa/{qa_id}")
 async def edit_qa_entry(qa_id: int):
     qa = get_qa_entry(qa_id)
+    if "error" in qa:
+        return HTMLResponse(qa["error"], status_code=404)
     return HTMLResponse(f"""
         <tr id="qa-{qa_id}">
             <form hx-put="/update_qa/{qa_id}" hx-target="#qa-{qa_id}" hx-swap="outerHTML">
-                <td><input type="text" name="question" value="{qa['question']}" required></td>
-                <td><input type="text" name="answer" value="{qa['answer']}" required></td>
+                <td><input type="text" name="question" value="{escape(qa['question'])}" required></td>
+                <td><input type="text" name="answer" value="{escape(qa['answer'])}" required></td>
                 <td>
                     <button type="submit" class="action-btn">Save</button>
                 </td>
@@ -112,7 +100,7 @@ async def edit_qa_entry(qa_id: int):
 @app.put("/update_qa/{qa_id}")
 async def update_qa_entry(qa_id: int, question: str = Form(...), answer: str = Form(...)):
     update_qa(qa_id, question, answer)
-    return get_qa_data()
+    return await get_qa_data()
 
 if __name__ == "__main__":
     import uvicorn

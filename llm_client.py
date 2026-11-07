@@ -46,15 +46,15 @@ def generate_qa(fact):
     print(f"Response: {data}")
     # Find the JSON data in the response
     start = data.find("[")
-    end = data.find("]")
-    qa_pairs = data[start:end + 1]
+    end = data.rfind("]")
+    qa_pairs = data[start:end + 1] if start != -1 else ""
     print(qa_pairs)
-    if not qa_pairs:
-        r = []
+    r = []
     if qa_pairs.startswith("[{") and qa_pairs.endswith("}]"):
         try:
             r = json.loads(qa_pairs)
         except json.JSONDecodeError:
             print("Error decoding JSON data")
             r = []
+    return r
 
